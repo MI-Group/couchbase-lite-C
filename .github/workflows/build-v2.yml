@@ -1,4 +1,4 @@
-name: Build
+name: Build ARM32
 
 on:
   push:
@@ -19,14 +19,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
       with:
         submodules: recursive
 
-    - name: Set up ARM32 Environment
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake
+        sudo apt-get install -y build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake
 
     - name: Create Build Directory
       run: cmake -E make_directory ${{github.workspace}}/build
@@ -40,7 +40,7 @@ jobs:
       run: cmake --build . --config ${{env.BUILD_TYPE}}
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v2
       with:
         name: build-artifact-arm32
         path: ${{github.workspace}}/build
