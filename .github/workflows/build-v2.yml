@@ -1,4 +1,4 @@
-name: Build ARM32
+name: Build ARM32 Binary
 
 on:
   push:
@@ -13,14 +13,14 @@ on:
 
 env:
   BUILD_TYPE: Debug
-  ROOTFS: /path/to/sysroot  # Define the ROOTFS environment variable
 
 jobs:
-  build:
+  build-arm32:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -30,11 +30,13 @@ jobs:
         sudo apt-get install -y build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake zlib1g-dev
 
     - name: Verify Toolchain File
-      # Check if the toolchain file exists and debug its path
       run: |
-        if [ ! -f "${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake" ]; then
-          echo "Toolchain file not found: ${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
+        TOOLCHAIN_PATH="${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
+        if [ ! -f "$TOOLCHAIN_PATH" ]; then
+          echo "Error: Toolchain file not found at $TOOLCHAIN_PATH"
           exit 1
+        else
+          echo "Toolchain file found at $TOOLCHAIN_PATH"
         fi
 
     - name: Create Build Directory
@@ -43,15 +45,21 @@ jobs:
     - name: Configure CMake for ARM32
       working-directory: ${{github.workspace}}/build
       run: |
-        export ROOTFS=/  # Ensure ROOTFS is exported for the build environment
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
-    - name: Build
+    - name: Build ARM32 Binary
       working-directory: ${{github.workspace}}/build
-      run: cmake --build . --config ${{env.BUILD_TYPE}}
+      run: cmake --build . --config $BUILD_TYPE
 
-    - name: Upload Artifact
+    - name: Verify Build Output
+      working-directory: ${{github.workspace}}/build
+      run: |
+        ls -lash
+
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: build-artifact-arm32
+        name: arm32-build-artifact
         path: ${{github.workspace}}/build
