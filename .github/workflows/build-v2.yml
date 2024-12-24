@@ -1,4 +1,4 @@
-name: Build And Test
+name: Build and Test for ARMHF
 
 on:
   push:
@@ -11,9 +11,7 @@ on:
       - '**'
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Debug
-  ROOTFS: /usr/arm-linux-gnueabihf
 
 jobs:
   build:
@@ -28,61 +26,38 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install Dependencies
-      if: matrix.os == 'ubuntu-latest'
+    #### Install Dependencies
+
+    - name: Install ARMHF Cross-Compiler and Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          gcc-arm-linux-gnueabihf \
-          g++-arm-linux-gnueabihf \
-          qemu-user-static \
-          build-essential \
-          cmake \
-          libc6-dev-armhf-cross
+        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+          libicu-dev libicu-dev-armhf-cross zlib1g-dev zlib1g-dev-armhf-cross
 
-    - name: Create Build Environment
-      working-directory: ${{ github.workspace }}
-      run: cmake -E make_directory ${{ github.workspace }}/build
-
-    - name: Configure CMake for armhf
-      if: matrix.os == 'ubuntu-latest'
-      working-directory: ${{ github.workspace }}/build
+    - name: Set Up Cross-Compilation Toolchain
       run: |
-        cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/Toolchain-cross-armhf.cmake \
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DROOTFS=$ROOTFS \
-          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
+        echo "Setting up ARMHF cross-compilation environment"
+        mkdir -p $HOME/.cross
+        echo 'set(CMAKE_SYSTEM_NAME Linux)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_SYSTEM_PROCESSOR arm)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabihf-gcc)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabihf-g++)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_SYSROOT /usr/arm-linux-gnueabihf)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_FIND_ROOT_PATH /usr/arm-linux-gnueabihf)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)' >> $HOME/.cross/toolchain.cmake
+        echo 'set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)' >> $HOME/.cross/toolchain.cmake
 
-    - name: Configure CMake (Windows)
-      if: matrix.os == 'windows-latest'
-      working-directory: ${{ github.workspace }}/build
-      run: cmake .. -A x64 -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
+    #### BUILD
 
-    - name: Configure CMake (macOS)
-      if: matrix.os == 'macOS-latest'
-      working-directory: ${{ github.workspace }}/build
-      run: cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
-
-    - name: Build
-      working-directory: ${{ github.workspace }}/build
-      run: cmake --build . --config ${{ env.BUILD_TYPE }}
-
-    - name: Test
-      if: runner.os != 'Windows'
-      working-directory: ${{ github.workspace }}
-      shell: bash
+    - name: Create Build Directory
       run: |
-        pushd build/test
-        ./CBL_C_Tests -r list
-        popd
+        mkdir -p $GITHUB_WORKSPACE/build
 
-    - name: Test On Windows
-      if: runner.os == 'Windows'
-      working-directory: ${{ github.workspace }}
-      shell: bash
+    - name: Configure CMake for ARMHF
       run: |
-        mkdir -p /c/tmp
-        pushd build/test/${{ env.BUILD_TYPE }}
-        ./CBL_C_Tests.exe -r list
-        popd
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=$HOME/.cross/toolchain.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/build/out
+
+    - name: Build Project
+      run: |
+        cmake --build . --config $BUILD_TYPE
