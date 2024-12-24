@@ -31,8 +31,8 @@ jobs:
     - name: Verify Toolchain File
       # Check if the toolchain file exists and debug its path
       run: |
-        if [ ! -f "${{github.workspace}}/Toolchain-cross-armhf.cmake" ]; then
-          echo "Toolchain file not found: ${{github.workspace}}/Toolchain-cross-armhf.cmake"
+        if [ ! -f "${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake" ]; then
+          echo "Toolchain file not found: ${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
           exit 1
         fi
 
@@ -42,7 +42,7 @@ jobs:
     - name: Configure CMake for ARM32
       working-directory: ${{github.workspace}}/build
       run: |
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/Toolchain-cross-armhf.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
     - name: Build
       working-directory: ${{github.workspace}}/build
