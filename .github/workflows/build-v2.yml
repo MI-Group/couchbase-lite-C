@@ -13,7 +13,7 @@ on:
 
 env:
   BUILD_TYPE: Debug
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,7 +46,6 @@ jobs:
       - name: Configure CMake for ARM32
         working-directory: ${{github.workspace}}/build
         run: |
-          export ROOTFS=${{env.ROOTFS}}
           cmake .. \
             -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
