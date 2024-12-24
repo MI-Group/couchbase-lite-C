@@ -1,4 +1,4 @@
-name: Build ARM32 Binary
+name: Build ARM32
 
 on:
   push:
@@ -13,53 +13,55 @@ on:
 
 env:
   BUILD_TYPE: Debug
+  ROOTFS: /path/to/sysroot  # Define the ROOTFS environment variable for CMake
 
 jobs:
-  build-arm32:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      # Step 1: Check out the code
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake zlib1g-dev
+      # Step 2: Install dependencies
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake zlib1g-dev ninja-build
 
-    - name: Verify Toolchain File
-      run: |
-        TOOLCHAIN_PATH="${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
-        if [ ! -f "$TOOLCHAIN_PATH" ]; then
-          echo "Error: Toolchain file not found at $TOOLCHAIN_PATH"
-          exit 1
-        else
-          echo "Toolchain file found at $TOOLCHAIN_PATH"
-        fi
+      # Step 3: Verify toolchain file
+      - name: Verify Toolchain File
+        run: |
+          if [ ! -f "${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake" ]; then
+            echo "Toolchain file not found: ${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
+            exit 1
+          fi
 
-    - name: Create Build Directory
-      run: cmake -E make_directory ${{github.workspace}}/build
+      # Step 4: Create Build Directory
+      - name: Create Build Directory
+        run: cmake -E make_directory ${{github.workspace}}/build
 
-    - name: Configure CMake for ARM32
-      working-directory: ${{github.workspace}}/build
-      run: |
-        cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake \
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      # Step 5: Configure CMake
+      - name: Configure CMake for ARM32
+        working-directory: ${{github.workspace}}/build
+        run: |
+          export ROOTFS=${{env.ROOTFS}}
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/build/out
+           
 
-    - name: Build ARM32 Binary
-      working-directory: ${{github.workspace}}/build
-      run: cmake --build . --config $BUILD_TYPE
+      # Step 6: Build
+      - name: Build Project
+        working-directory: ${{github.workspace}}/build
+        run: cmake --build . --config ${{env.BUILD_TYPE}}
 
-    - name: Verify Build Output
-      working-directory: ${{github.workspace}}/build
-      run: |
-        ls -lash
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: arm32-build-artifact
-        path: ${{github.workspace}}/build
+      # Step 7: Upload Build Artifacts
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifact-arm32
+          path: ${{github.workspace}}/build
