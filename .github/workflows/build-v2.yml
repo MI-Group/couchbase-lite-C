@@ -37,7 +37,8 @@ jobs:
           g++-arm-linux-gnueabihf \
           qemu-user-static \
           build-essential \
-          cmake
+          cmake \
+          libc6-dev-armhf-cross
 
     - name: Create Build Environment
       working-directory: ${{ github.workspace }}
