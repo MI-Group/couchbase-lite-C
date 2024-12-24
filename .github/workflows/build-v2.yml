@@ -1,4 +1,4 @@
-name: Build ARM32
+name: Build And Test
 
 on:
   push:
@@ -9,57 +9,79 @@ on:
   pull_request:
     branches:
       - '**'
-  workflow_dispatch:
 
 env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Debug
+  ROOTFS: /usr/arm-linux-gnueabihf
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
-      # Step 1: Check out the code
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
 
-      # Step 2: Install dependencies
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libicu-dev build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake zlib1g-dev ninja-build libicu-dev
+    - name: Install Dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          gcc-arm-linux-gnueabihf \
+          g++-arm-linux-gnueabihf \
+          qemu-user-static \
+          build-essential \
+          cmake
 
-      # Step 3: Verify toolchain file
-      - name: Verify Toolchain File
-        run: |
-          if [ ! -f "${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake" ]; then
-            echo "Toolchain file not found: ${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake"
-            exit 1
-          fi
+    - name: Create Build Environment
+      working-directory: ${{ github.workspace }}
+      run: cmake -E make_directory ${{ github.workspace }}/build
 
-      # Step 4: Create Build Directory
-      - name: Create Build Directory
-        run: cmake -E make_directory ${{github.workspace}}/build
+    - name: Configure CMake for armhf
+      if: matrix.os == 'ubuntu-latest'
+      working-directory: ${{ github.workspace }}/build
+      run: |
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/Toolchain-cross-armhf.cmake \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DROOTFS=$ROOTFS \
+          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
 
-      # Step 5: Configure CMake
-      - name: Configure CMake for ARM32
-        working-directory: ${{github.workspace}}/build
-        run: |
-          cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/cmake/Toolchain-cross-armhf.cmake \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/build/out
-           
+    - name: Configure CMake (Windows)
+      if: matrix.os == 'windows-latest'
+      working-directory: ${{ github.workspace }}/build
+      run: cmake .. -A x64 -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
 
-      # Step 6: Build
-      - name: Build Project
-        working-directory: ${{github.workspace}}/build
-        run: cmake --build . --config ${{env.BUILD_TYPE}}
+    - name: Configure CMake (macOS)
+      if: matrix.os == 'macOS-latest'
+      working-directory: ${{ github.workspace }}/build
+      run: cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/build/out
 
-      # Step 7: Upload Build Artifacts
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifact-arm32
-          path: ${{github.workspace}}/build
+    - name: Build
+      working-directory: ${{ github.workspace }}/build
+      run: cmake --build . --config ${{ env.BUILD_TYPE }}
+
+    - name: Test
+      if: runner.os != 'Windows'
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      run: |
+        pushd build/test
+        ./CBL_C_Tests -r list
+        popd
+
+    - name: Test On Windows
+      if: runner.os == 'Windows'
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      run: |
+        mkdir -p /c/tmp
+        pushd build/test/${{ env.BUILD_TYPE }}
+        ./CBL_C_Tests.exe -r list
+        popd
