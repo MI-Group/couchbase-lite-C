@@ -28,19 +28,28 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf cmake
 
+    - name: Verify Toolchain File
+      # Check if the toolchain file exists and debug its path
+      run: |
+        if [ ! -f "${{github.workspace}}/toolchain-arm32.cmake" ]; then
+          echo "Toolchain file not found: ${{github.workspace}}/toolchain-arm32.cmake"
+          exit 1
+        fi
+
     - name: Create Build Directory
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake for ARM32
       working-directory: ${{github.workspace}}/build
-      run: cmake .. -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/toolchain-arm32.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      run: |
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/toolchain-arm32.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
     - name: Build
       working-directory: ${{github.workspace}}/build
       run: cmake --build . --config ${{env.BUILD_TYPE}}
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: build-artifact-arm32
         path: ${{github.workspace}}/build
